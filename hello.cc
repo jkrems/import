@@ -22,7 +22,6 @@ public:
   }
 
 private:
-  static std::map<Nan::Persistent<Module>*, ModuleRecord*> module_lookup_;
   Nan::Persistent<Module> module_;
 
   ModuleRecord() {}
@@ -59,12 +58,8 @@ private:
     Nan::Set(info.This(), Nan::New<String>("requests").ToLocalChecked(), requests);
     Nan::Set(info.This(), Nan::New<String>("resolved").ToLocalChecked(), Nan::New<Object>());
 
-    record->module_.Reset(module);
-
-    // Ugh - all so we can get back the ModuleRecord in ResolveModuleCallback
-    Nan::Persistent<Module> *global_ref = new Nan::Persistent<Module>();
-    global_ref->Reset(module);
-    module_lookup_[global_ref] = record;
+    record->module_.Reset(module); // TODO: make weak so we don't leak memory?
+    module->SetEmbedderData(info.This());
 
     info.GetReturnValue().Set(info.This());
   }
@@ -76,20 +71,7 @@ private:
     TryCatch try_catch(context->GetIsolate());
     Nan::Callback resolver(data.As<v8::Function>());
 
-    ModuleRecord *referrer_record = nullptr;
-    for (auto it = module_lookup_.begin(); it != module_lookup_.end(); ++it) {
-      // Do stuff
-      if (*(it->first) == referrer) {
-        referrer_record = it->second;
-        break;
-      }
-    }
-
-    Local<Value> referrer_value(Nan::Null());
-    if (referrer_record != nullptr) {
-      Local<Object> referrer_obj = referrer_record->handle();
-      referrer_value = referrer_obj;
-    }
+    Local<Value> referrer_value = referrer->GetEmbedderData();
 
     Local<Value> resolver_args[] = { specifier, referrer_value };
     Local<Value> resolved = resolver(2, resolver_args);
@@ -134,8 +116,6 @@ private:
     return my_constructor;
   }
 };
-
-std::map<Nan::Persistent<Module>*, ModuleRecord*> ModuleRecord::module_lookup_;
 
 NAN_MODULE_INIT(InitAll) {
   ModuleRecord::Init(target);
