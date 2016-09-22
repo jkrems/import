@@ -1,6 +1,7 @@
 'use strict';
 const path = require('path');
 const fs = require('fs');
+const NodeModule = require('module');
 
 const ModuleRecord = require('./build/Release/addon.node').ModuleRecord;
 
@@ -23,8 +24,8 @@ function parseModule(filename) {
   });
 }
 
-function resolveModuleUrl(request, referrer) {
-  return path.resolve(path.dirname(referrer.filename), request);
+function resolveModuleUrl(request, referrerUrl) {
+  return path.resolve(path.dirname(referrerUrl), request);
 }
 
 function createModuleRecord(rootFilename) {
@@ -35,7 +36,7 @@ function createModuleRecord(rootFilename) {
     seen.add(filename);
     return parseModule(filename).then(record => {
       return Promise.all(record.requests.map(request => {
-        return visit(resolveModuleUrl(request, record));
+        return visit(resolveModuleUrl(request, record.filename));
       })).then(() => record);
     });
   }
@@ -44,7 +45,7 @@ function createModuleRecord(rootFilename) {
 }
 
 function resolveModuleSync(request, referrer) {
-  const filename = resolveModuleUrl(request, referrer);
+  const filename = resolveModuleUrl(request, referrer.filename);
   return cache.get(filename);
 }
 
@@ -53,5 +54,7 @@ function runModule(filename) {
     .then(record => record.run(resolveModuleSync));
 }
 
-runModule(path.resolve('examples/index.js'))
-  .then(() => console.log('ok'));
+NodeModule.prototype.import = function importES6(request) {
+  const filename = resolveModuleUrl(request, this.filename);
+  return runModule(filename);
+};

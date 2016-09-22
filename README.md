@@ -4,7 +4,7 @@
 
 Not much to see here. Basically just a port of the latest d8 import resolution stuff to node.
 
-When everything worked, `../node/node index.js` will print:
+When everything worked, `../node/node --require . app.js` will print:
 
 ```
 From other.js
