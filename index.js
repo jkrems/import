@@ -7,23 +7,6 @@ const { ModuleWrap } = require('bindings')('module_wrap');
 
 const moduleCache = new Map();
 
-function resolveRequestUrl(url, specifier) {
-  // TODO: Handle library paths (e.g. anything not using "/" or ".")
-  return Url.resolve(url, specifier);
-}
-
-function loadModuleSource(url) {
-  return new Promise((resolve, reject) => {
-    fs.readFile(url.replace(/^file:\/\//, ''), (error, source) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(source);
-      }
-    });
-  });
-}
-
 class ModuleJob {
   constructor({ loadSource, resolveUrl, cache }) {
     this._pending = new Map();
@@ -63,7 +46,8 @@ class ModuleJob {
 }
 
 function pathToFileURL(pathname) {
-  return `file://${pathname.replace('\\', '/')}/`;
+  // TODO: Handle windows paths
+  return `file://${pathname}/`;
 }
 
 class Loader {
@@ -72,14 +56,31 @@ class Loader {
     this._parent = { url: base };
     this._loadStrategy = {
       cache: this._cache,
-      loadSource: loadModuleSource,
-      resolveUrl: resolveRequestUrl,
+      loadSource: this._loadModuleSource.bind(this),
+      resolveUrl: this._resolveRequestUrl.bind(this),
     };
   }
 
   import(specifier, parent = this._parent) {
     const job = new ModuleJob(this._loadStrategy);
     return job.run(parent, specifier);
+  }
+
+  _resolveRequestUrl(url, specifier) {
+    // TODO: Handle library paths (e.g. anything not using "/" or ".")
+    return Url.resolve(url, specifier);
+  }
+
+  _loadModuleSource(url) {
+    return new Promise((resolve, reject) => {
+      fs.readFile(url.replace(/^file:\/\//, ''), (error, source) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(source);
+        }
+      });
+    });
   }
 }
 const loader = new Loader();
