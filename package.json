@@ -1,0 +1,16 @@
+{
+  "name": "require-import",
+  "version": "0.0.0",
+  "description": "Hacking support into node 8.x",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Jan Krems <jan.krems@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "bindings": "^1.2.1",
+    "nan": "^2.6.2"
+  }
+}
