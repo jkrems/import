@@ -17,7 +17,6 @@ class ModuleWrap : public Nan::ObjectWrap {
     static NAN_METHOD(Instantiate);
     static NAN_METHOD(Evaluate);
     static NAN_GETTER(GetUrl);
-    static NAN_GETTER(GetRequests);
     static v8::MaybeLocal<v8::Module> ResolveCallback(v8::Local<v8::Context> context,
                                                       v8::Local<v8::String> specifier,
                                                       v8::Local<v8::Module> referrer);
@@ -143,20 +142,6 @@ NAN_GETTER(ModuleWrap::GetUrl) {
   info.GetReturnValue().Set(url);
 }
 
-NAN_GETTER(ModuleWrap::GetRequests) {
-  ModuleWrap* obj = Nan::ObjectWrap::Unwrap<ModuleWrap>(info.This());
-  v8::Local<v8::Module> mod = Nan::New(obj->module_);
-
-  auto len = mod->GetModuleRequestsLength();
-  v8::Local<v8::Array> requests = Nan::New<v8::Array>(len);
-
-  for (auto i = 0; i < len; i++) {
-    requests->Set(i, mod->GetModuleRequest(i));
-  }
-
-  info.GetReturnValue().Set(requests);
-}
-
 NAN_METHOD(ModuleWrap::Instantiate) {
   auto iso = info.GetIsolate();
 
@@ -247,7 +232,6 @@ NAN_MODULE_INIT(ModuleWrap::Init) {
   tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
   Nan::SetAccessor(tpl->InstanceTemplate(), Nan::New("url").ToLocalChecked(), GetUrl);
-  Nan::SetAccessor(tpl->InstanceTemplate(), Nan::New("requests").ToLocalChecked(), GetRequests);
 
   Nan::SetPrototypeMethod(tpl, "link", Link);
   Nan::SetPrototypeMethod(tpl, "instantiate", Instantiate);
