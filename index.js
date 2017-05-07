@@ -111,6 +111,8 @@ function getNamespaceOf(m) {
   const tmp = new ModuleWrap('import * as _ from "";_;', '');
   tmp.link(() => Promise.resolve(m));
   tmp.instantiate();
+  // Requires https://github.com/v8/v8/commit/ae66dcbec0b2457d5c050e1869a2de18925e23e1
+  // V8 >= 5.8.297
   const ns = tmp.evaluate();
   return ns;
 }
