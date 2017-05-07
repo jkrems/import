@@ -5,7 +5,17 @@ const Url = require('url');
 
 const { ModuleWrap } = require('bindings')('module_wrap');
 
-const moduleCache = new Map();
+function readFileAsync(filename) {
+    return new Promise((resolve, reject) => {
+      fs.readFile(filename, (error, source) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(source);
+        }
+      });
+    });
+}
 
 class ModuleJob {
   constructor({ loadSource, resolveUrl, cache }) {
@@ -73,13 +83,7 @@ class Loader {
 
   _loadModuleSource(url) {
     return new Promise((resolve, reject) => {
-      fs.readFile(url.replace(/^file:\/\//, ''), (error, source) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(source);
-        }
-      });
+      return readFileAsync(url.replace(/^file:\/\//, ''));
     });
   }
 }
