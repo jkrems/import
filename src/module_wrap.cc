@@ -226,7 +226,18 @@ v8::MaybeLocal<v8::Module> ModuleWrap::ResolveCallback(v8::Local<v8::Context> co
   return mod->module_.Get(context->GetIsolate());
 }
 
+static void HandleImportModuleDynamically(v8::Isolate* isolate,
+                                          v8::Local<v8::String> referrer,
+                                          v8::Local<v8::String> specifier,
+                                          v8::Local<v8::DynamicImportResult> result) {
+  // TODO: implement
+  printf("Do stuff!\n");
+}
+
 NAN_MODULE_INIT(ModuleWrap::Init) {
+  v8::Isolate* iso = v8::Isolate::GetCurrent();
+  iso->SetHostImportModuleDynamicallyCallback(HandleImportModuleDynamically);
+
   v8::Local<v8::FunctionTemplate> tpl = Nan::New<v8::FunctionTemplate>(New);
   tpl->SetClassName(Nan::New("ModuleWrap").ToLocalChecked());
   tpl->InstanceTemplate()->SetInternalFieldCount(1);

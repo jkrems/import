@@ -19,38 +19,50 @@ function readFileAsync(filename) {
     });
 }
 
-class ModuleJob {
-  constructor({ loadSource, resolveUrl, link, cache }) {
+class ModuleCache {
+  constructor() {
     this._pending = new Map();
-    this._loadSource = loadSource;
-    this._resolveUrl = resolveUrl;
-    this._link = link;
-    this._cache = cache;
-
-    this.resolveImportedModule = this._resolveImportedModule.bind(this);
+    this._cache = new Map();
   }
 
-  async _createModule(req) {
+  async _createModule(req, resolveImportedModule) {
     const m = await req.createModule();
     if (m.url) this._cache.set(m.url, m);
-    req.linkModule(m, this.resolveImportedModule);
+    req.linkModule(m, resolveImportedModule);
     return m;
+  }
+
+  getModule(req, resolveImportedModule) {
+    if (this._cache.has(req.url)) return this._cache.get(req.url);
+    if (this._pending.has(req.url)) return this._pending.get(req.url);
+
+    const eventualModule = this._createModule(req, resolveImportedModule);
+    this._pending.set(req.url, eventualModule); // important to use the promise so we can support cycles
+    return eventualModule;
+  }
+}
+
+class ModuleJob {
+  constructor({ resolveUrl, cache }) {
+    this._resolveUrl = resolveUrl;
+    this._cache = cache;
+
+    this._dependencies = new Set();
+
+    this.resolveImportedModule = this._resolveImportedModule.bind(this);
   }
 
   // async to ensure we consistently return promises, even when returning from cache
   async _resolveImportedModule(referencingModule, specifier) {
     const req = this._resolveUrl(referencingModule.url, specifier);
-    if (this._cache.has(req.url)) return this._cache.get(req.url);
-    if (this._pending.has(req.url)) return this._pending.get(req.url);
-
-    const eventualModule = this._createModule(req);
-    this._pending.set(req.url, eventualModule); // important to use the promise so we can support cycles
+    const eventualModule = this._cache.getModule(req, this.resolveImportedModule);
+    this._dependencies.add(eventualModule);
     return eventualModule;
   }
 
   async run(referencingModule, specifier) {
     const moduleRoot = await this._resolveImportedModule(referencingModule, specifier);
-    await Promise.all(this._pending.values());
+    await Promise.all(this._dependencies.values());
     moduleRoot.instantiate();
     moduleRoot.evaluate();
     return moduleRoot;
@@ -92,16 +104,16 @@ class CJSModuleRequest {
   }
 
   async createModule() {
-    const m = new ModuleWrap('import { $ } from ""; export default $;', this.url);
+    const m = new ModuleWrap('export { $default as default } from "";', this.url);
     return m;
   }
 
   linkModule(m, resolveImportedModule) {
     const content = this._parent.require(this._filename);
-    const reflective = new ModuleWrap(`export let $; ({ set_$(v) { $ = v; } })`, '');
+    const reflective = new ModuleWrap(`export let $default; ({ set_$default(v) { $default = v; } })`, '');
     reflective.instantiate();
     const mutator = reflective.evaluate();
-    mutator.set_$(content);
+    mutator.set_$default(content);
 
     m.link(() => Promise.resolve(reflective));
   }
@@ -124,7 +136,7 @@ function pathToFileURL(pathname) {
 
 class Loader {
   constructor(base = pathToFileURL(process.cwd())) {
-    this._cache = new Map();
+    this._cache = new ModuleCache();
     this._parent = { url: base };
     this._loadStrategy = {
       cache: this._cache,
@@ -182,6 +194,12 @@ require('./example/require-es.js');
 loader.import(`node://${__dirname}/package.json`)
   .then(console.log, console.error);
 
+console.log('before import');
+import('xyz')
+  .then(console.log, console.error);
+console.log('after import');
+
+console.log(import('xyz'));
 // require(cjsModule)
 // module.import(jsModule)
 // import 'node:///path/to/cjs/module';
